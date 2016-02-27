@@ -25,9 +25,20 @@ class SmartFilter {
   double filter(double raw_value);
 
  private:
-  // Privates...
+  // Fields
+  int order;
+  double * ff_coeff;
+  double * fb_coeff;
+  double * raw_data;
+  double * filt_data;
+  int curr_index;
+  
+  // Internal methods
+  int indexShift(int shift);
+  double errorFx();
+  double errorFxD();
+};
 
-}
 
 
 #endif
