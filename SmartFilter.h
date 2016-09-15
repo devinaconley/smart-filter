@@ -9,34 +9,35 @@
   http://...
   by Devin Conley
   ============================================================================================
- */
+*/
 
 #ifndef SMARTFILTER_H
 #define SMARTFILTER_H
 
 #include "Arduino.h"
 
-class SmartFilter {
+class SmartFilter 
+{
  public:
   // Constructor
-  SmartFilter();
-  
+  SmartFilter( int order = 2 );
+
   // Accepts raw value, returns filtered value
-  double filter(double raw_value);
+  double Filter( double rawValue );
 
  private:
   // Fields
   int order;
-  double * ff_coeff;
-  double * fb_coeff;
-  double * raw_data;
-  double * filt_data;
-  int curr_index;
+  double * ffCoeff;
+  double * fbCoeff;
+  double * rawData;
+  double * filtData;
+  int currIndex;
   
   // Internal methods
-  int indexShift(int shift);
-  double errorFx();
-  double errorFxD();
+  int IndexShift( int shift );
+  double ErrorFx();
+  void DoGradientDescent();
 };
 
 

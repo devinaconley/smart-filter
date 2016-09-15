@@ -18,20 +18,31 @@ SmartFilter sf;
 double raw;
 double filtered;
 
-void setup() {
+int k;
+
+void setup()
+{
   p = Plotter();
-  p.addTimeGraph("SmartFilter Demo", 1000, "Raw data", &raw, "Filtered data", &filtered);
+  p.addTimeGraph("SmartFilter Demo", 1000, "Raw data", raw, "Filtered data", filtered );
   sf = SmartFilter();
+  k = 0;
 }
 
-void loop() {
-  // Update with abitrary sine data that we add intentional noise to
+void loop()
+{
+  // Update with abitrary sine data
   raw = 10.0*sin( (millis()/5000.0) * (2.0*M_PI) );
-  raw += random(-100, 100)/100.0;
-
-  // Filter with SmartFilter
-  filtered = sf.filter(raw);
+  // Make every 5th sample "noisy"
+  if ( k == 5 )
+    {
+      raw += random(-100, 100)/100.0;
+      k = 0;
+    }
+  k++;
   
+  // Filter with SmartFilter
+  filtered = sf.Filter(raw);
+
   // Plot both for comparison
   p.plot();
 }
