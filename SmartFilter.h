@@ -18,26 +18,32 @@
 
 class SmartFilter 
 {
- public:
-  // Constructor
-  SmartFilter( int order = 2 );
+public:
+    // Constructor
+    SmartFilter();
 
-  // Accepts raw value, returns filtered value
-  double Filter( double rawValue );
+    // Accepts raw value, returns filtered value
+    double Filter( double rawValue );
 
- private:
-  // Fields
-  int order;
-  double * ffCoeff;
-  double * fbCoeff;
-  double * rawData;
-  double * filtData;
-  int currIndex;
+private:
+    // Data
+    double * ffCoeff;
+    double * fbCoeff;
+    double * rawData;
+    double * filtData;
+    size_t currIndex;
   
-  // Internal methods
-  int IndexShift( int shift );
-  double ErrorFx();
-  void DoGradientDescent();
+    // Settings
+    size_t order;
+    size_t window;
+    double learningRate;
+    double weightCoeff;
+  
+    // Internal methods
+    int IndexShift( int shift );
+    void GetLossGradient( double * ffGrad, double * fbGrad );
+    void GetVarGradient( double * ffGrad, double * fbGrad );
+    void DoGradientDescent();
 };
 
 

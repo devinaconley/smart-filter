@@ -2,114 +2,123 @@
   ============================================================================================
   Smart Filter is an Arduino library that automatically configures itself to your data.
   --------------------------------------------------------------------------------------------
-
   --------------------------------------------------------------------------------------------
   SmartFilter
   v0.0.0
   http://...
   by Devin Conley
   ============================================================================================
- */
+*/
 
 #include "SmartFilter.h"
 
 // Constructor
-SmartFilter::SmartFilter(int order /* = 3 */ ) : order( order ) 
+SmartFilter::SmartFilter() :
+    order( 2 ), learningRate( 0.0005 ), weightCoeff( 0.2 )
 {
-  currIndex = 0;
+    window = 2 * ( order + 1 );
+    
+    currIndex = 0;
+    
+    fbCoeff = new double[order + 1];
+    ffCoeff = new double[order + 1];
 
-  fbCoeff = new double[order + 1];
-  ffCoeff = new double[order + 1];
+    // Starting values
+    fbCoeff[0] = 1.0;
+    fbCoeff[1] = -1.4;
+    fbCoeff[2] = 0.50;
 
-  // Starting values
-  fbCoeff[0] = 1.0;
-  fbCoeff[1] = -1.98;
-  fbCoeff[2] = 1.0;
-  ffCoeff[0] = .005;
-  ffCoeff[1] = .010;
-  ffCoeff[2] = .005;
-
-  // Data storage
-  rawData = new double[order + 1]();
-  filtData = new double[order + 1]();
+    ffCoeff[0] = 0.20;
+    ffCoeff[1] = -0.30;
+    ffCoeff[2] = 0.20;
+    
+    // Data storage
+    rawData = new double[window]();
+    filtData = new double[window]();
 }
 
 // IIR filter
 double SmartFilter::Filter( double rawValue )
 {
-  currIndex = IndexShift(1);
+    currIndex = IndexShift( 1 );
 
-  rawData[currIndex] = rawValue;
+    rawData[currIndex] = rawValue;
 
-  filtData[currIndex] = 0;
-
-  for ( int i = 0; i < order + 1; ++i )
+    filtData[currIndex] = 0;
+    for ( size_t i = 0; i < order + 1; ++i )
     {
-      filtData[currIndex] += rawData[IndexShift(-i)]*ffCoeff[i] - 
-	filtData[IndexShift(-i)]*fbCoeff[i];
+	filtData[currIndex] += rawData[IndexShift(-i)]*ffCoeff[i] - filtData[IndexShift(-i)]*fbCoeff[i];
     }
 
-  DoGradientDescent();
-  
-  return filtData[currIndex];
+    DoGradientDescent();
+    
+    return filtData[currIndex];
 }
+    
 
 // Index shifter helper method
-int SmartFilter::IndexShift(int shift) {
-  int sz = order + 1;
-  int temp = currIndex + shift;
-  if ( 0 <= temp && temp < sz )
-    {
-      return temp;
-    } 
-  else if ( temp >= sz ) 
-    {
-      return temp - sz;
-    } 
-  else 
-    {
-      return temp + sz;
-    }
-}
-
-// Error Function
-double SmartFilter::ErrorFx()
+int SmartFilter::IndexShift( int shift )
 {
- double yMean = 0;
-  for ( int i = 0; i < order + 1; ++i )
+    int sz = window;
+    int temp = currIndex + shift;
+    if ( 0 <= temp && temp < sz )
     {
-      yMean += filtData[i];
-    }
-  yMean /= ( order + 1 );
-  
-  // Sum 2*(y_i - x_i)
-  double sumDiff = 0;
-  for ( int i = 0; i < order + 1; ++i )
+	return temp;
+    } 
+    else if ( temp >= sz ) 
     {
-      sumDiff += 2*( filtData[i] - rawData[i] );
-    }
-
-  // Sum 2*(y_i - y_mean)
-  double sumVarD = 0;
-  for ( int i = 0; i < order + 1; ++i )
+	return temp - sz;
+    } 
+    else 
     {
-      sumVarD += 2*( filtData[i] - yMean );
+	return temp + sz;
     }
-  
-  double c = 0.8; // weighting coefficient
-
-  return ( c * sumDiff + (1-c) * sumVarD );
 }
+
+// Gradient from error due to signal loss
+void SmartFilter::GetLossGradient( double * ffGrad, double * fbGrad )
+{
+    for ( size_t i = 0; i < order + 1; ++i )
+    {
+	ffGrad[i] = 0;
+	fbGrad[i] = 0;
+    }
+    for ( size_t i = 0; i < order + 1; ++i )
+    {
+	double temp = ( 2.0 / double( order+1 ) ) * ( filtData[IndexShift( -i )] - rawData[IndexShift( -i )] );
+
+	for ( size_t j = 0; j < order + 1; ++j )
+	{
+	    ffGrad[j] += temp*rawData[IndexShift( -j )];
+	    if ( j != 0 )
+	    {
+		fbGrad[j] -= temp*filtData[IndexShift( -j )];
+	    }
+	}
+    }
+
+}
+
+void SmartFilter::GetVarGradient( double * ffGrad, double * fbGrad )
+{}
 
 // Do gradient descent
 void SmartFilter::DoGradientDescent()
 {
-  double error =  ErrorFx();
-  double learnCoeff = 0.000001;
-
-  for ( int i = 0; i < order + 1; ++i )
-    {
-      ffCoeff[i] -= learnCoeff * ffCoeff[i] * error;
-      fbCoeff[i] -= learnCoeff * fbCoeff[i] * error;
+    // Get gradient from signal loss error
+    double * ffDiffGrad = new double[order+1]();
+    double * fbDiffGrad = new double[order+1]();
+    GetLossGradient( ffDiffGrad, fbDiffGrad );
+    
+    for ( size_t i = 0; i < order + 1; ++i )
+    {	
+	ffCoeff[i] -= learningRate * ffDiffGrad[i];
+	if ( i != 0 )
+	{	    
+	    fbCoeff[i] -= learningRate * fbDiffGrad[i];
+	}
     }
+    
+    delete[] ffDiffGrad;
+    delete[] fbDiffGrad;
 }
