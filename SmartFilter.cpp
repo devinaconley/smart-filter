@@ -83,24 +83,52 @@ void SmartFilter::GetLossGradient( double * ffGrad, double * fbGrad )
 	ffGrad[i] = 0;
 	fbGrad[i] = 0;
     }
+    
     for ( size_t i = 0; i < order + 1; ++i )
     {
 	double temp = ( 2.0 / double( order+1 ) ) * ( filtData[IndexShift( -i )] - rawData[IndexShift( -i )] );
 
 	for ( size_t j = 0; j < order + 1; ++j )
 	{
-	    ffGrad[j] += temp*rawData[IndexShift( -j )];
+	    ffGrad[j] += temp*rawData[IndexShift( -(i+j) )];
 	    if ( j != 0 )
 	    {
-		fbGrad[j] -= temp*filtData[IndexShift( -j )];
+		fbGrad[j] -= temp*filtData[IndexShift( -(i+j) )];
 	    }
 	}
     }
 
 }
 
+// Gradient from error due to variance
 void SmartFilter::GetVarGradient( double * ffGrad, double * fbGrad )
-{}
+{
+    double sumFilt = 0.0; // const across all weights
+    for ( size_t i = 0; i < order + 1; ++i )
+    {
+	ffGrad[i] = 0;
+	fbGrad[i] = 0;
+	sumFilt += filtData[IndexShift( -i )];
+    }
+
+    for ( size_t i = 0; i < order + 1; ++i )
+    {
+	double ffTemp = 0.0;
+	double fbTemp = 0.0;
+	for( size_t j = 0; j < order + 1; ++j )
+	{
+	    ffGrad[i] += filtData[IndexShift(-i)]*rawData[IndexShift( -(i+j) )];
+	    ffTemp += rawData[IndexShift( -(i+j) )];
+	    if ( i != 0 )
+	    {
+		fbGrad[i] -= filtData[IndexShift(-i)]*filtData[IndexShift( -(i+j) )];
+		fbTemp -= filtData[IndexShift( -(i+j) )];	    
+	    }	    
+	}
+	ffGrad[i] = ( 2.0 / double( order+1 ) ) * ( ffGrad[i] - sumFilt*ffTemp );
+	fbGrad[i] = ( 2.0 / double( order+1 ) ) * ( fbGrad[i] - sumFilt*fbTemp );
+    }
+}
 
 // Do gradient descent
 void SmartFilter::DoGradientDescent()
@@ -109,16 +137,23 @@ void SmartFilter::DoGradientDescent()
     double * ffDiffGrad = new double[order+1]();
     double * fbDiffGrad = new double[order+1]();
     GetLossGradient( ffDiffGrad, fbDiffGrad );
+
+    // Get gradient from signal loss error
+    double * ffVarGrad = new double[order+1]();
+    double * fbVarGrad = new double[order+1]();
+    GetVarGradient( ffVarGrad, fbVarGrad );
     
     for ( size_t i = 0; i < order + 1; ++i )
     {	
-	ffCoeff[i] -= learningRate * ffDiffGrad[i];
+	ffCoeff[i] -= learningRate * ( weightCoeff*ffDiffGrad[i] );//+ (1.0 - weightCoeff)*ffVarGrad[i] );
 	if ( i != 0 )
 	{	    
-	    fbCoeff[i] -= learningRate * fbDiffGrad[i];
+	    //fbCoeff[i] -= learningRate * ( weightCoeff*fbDiffGrad[i] + (1.0 - weightCoeff)*fbVarGrad[i] );
 	}
     }
     
     delete[] ffDiffGrad;
     delete[] fbDiffGrad;
+    delete[] ffVarGrad;
+    delete[] fbVarGrad;
 }
