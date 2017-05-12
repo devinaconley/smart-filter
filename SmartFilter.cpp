@@ -14,7 +14,7 @@
 
 // Constructor
 SmartFilter::SmartFilter() :
-    order( 2 ), learningRate( 0.0005 ), weightCoeff( 0.2 )
+    order( 2 ), learningRate( 0.001 ), weightCoeff( 0.5 )
 {
     window = 2 * ( order + 1 );
     
@@ -97,7 +97,6 @@ void SmartFilter::GetLossGradient( double * ffGrad, double * fbGrad )
 	    }
 	}
     }
-
 }
 
 // Gradient from error due to variance
@@ -117,17 +116,18 @@ void SmartFilter::GetVarGradient( double * ffGrad, double * fbGrad )
 	double fbTemp = 0.0;
 	for( size_t j = 0; j < order + 1; ++j )
 	{
-	    ffGrad[i] += filtData[IndexShift(-i)]*rawData[IndexShift( -(i+j) )];
+	    ffGrad[i] += filtData[IndexShift(-j)]*rawData[IndexShift( -(i+j) )];
 	    ffTemp += rawData[IndexShift( -(i+j) )];
 	    if ( i != 0 )
 	    {
-		fbGrad[i] -= filtData[IndexShift(-i)]*filtData[IndexShift( -(i+j) )];
+		fbGrad[i] -= filtData[IndexShift(-j)]*filtData[IndexShift( -(i+j) )];
 		fbTemp -= filtData[IndexShift( -(i+j) )];	    
 	    }	    
 	}
-	ffGrad[i] = ( 2.0 / double( order+1 ) ) * ( ffGrad[i] - sumFilt*ffTemp );
-	fbGrad[i] = ( 2.0 / double( order+1 ) ) * ( fbGrad[i] - sumFilt*fbTemp );
+	ffGrad[i] = ( 2.0 / double( order+1 ) ) * ( ffGrad[i] - ( 1.0 / double( order+1 ) )*sumFilt*ffTemp );
+	fbGrad[i] = ( 2.0 / double( order+1 ) ) * ( fbGrad[i] - ( 1.0 / double( order+1 ) )*sumFilt*fbTemp );
     }
+
 }
 
 // Do gradient descent
@@ -145,10 +145,10 @@ void SmartFilter::DoGradientDescent()
     
     for ( size_t i = 0; i < order + 1; ++i )
     {	
-	ffCoeff[i] -= learningRate * ( weightCoeff*ffDiffGrad[i] );//+ (1.0 - weightCoeff)*ffVarGrad[i] );
+	ffCoeff[i] -= learningRate * ( weightCoeff*ffDiffGrad[i] + (1.0 - weightCoeff)*ffVarGrad[i] );
 	if ( i != 0 )
 	{	    
-	    //fbCoeff[i] -= learningRate * ( weightCoeff*fbDiffGrad[i] + (1.0 - weightCoeff)*fbVarGrad[i] );
+	    fbCoeff[i] -= learningRate * ( weightCoeff*fbDiffGrad[i] + (1.0 - weightCoeff)*fbVarGrad[i] );
 	}
     }
     
